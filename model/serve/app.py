@@ -51,6 +51,33 @@ def _round2d(a: np.ndarray, step: int = 2):
     return a.tolist()
 
 
+# The dashboard's thermal ramp, used to decode a colour-mapped SST image.
+_THERMAL = np.array([
+    [8, 20, 74], [26, 76, 160], [24, 149, 176], [64, 176, 120],
+    [190, 200, 60], [240, 150, 40], [214, 47, 39],
+], dtype=float)
+
+
+def _thermal_lut(n: int = 256) -> np.ndarray:
+    x = np.linspace(0, 1, n) * (len(_THERMAL) - 1)
+    i = np.clip(np.floor(x).astype(int), 0, len(_THERMAL) - 2)
+    f = (x - i)[:, None]
+    return _THERMAL[i] * (1 - f) + _THERMAL[i + 1] * f
+
+
+def _decode_thermal(rgb: np.ndarray) -> np.ndarray:
+    """Invert the thermal colour map: nearest ramp colour -> value in [0, 1]."""
+    lut = _thermal_lut(256)
+    best = np.full(rgb.shape[:2], np.inf)
+    idx = np.zeros(rgb.shape[:2], dtype=int)
+    for k in range(lut.shape[0]):
+        d = ((rgb - lut[k]) ** 2).sum(-1)
+        hit = d < best
+        best[hit] = d[hit]
+        idx[hit] = k
+    return idx / (lut.shape[0] - 1)
+
+
 def _coords():
     return ([round(float(x), 3) for x in MODEL.lat[::2]],
             [round(float(x), 3) for x in MODEL.lon[::2]])
@@ -160,27 +187,30 @@ async def reconstruct_image(
     file: UploadFile = File(...),
     date: str = Form(...),
     model: str = Form("cnn"),
+    colormap: str = Form("grayscale"),
 ) -> dict:
     """Feed an uploaded image as the SST field and reconstruct the subsurface.
-    Grayscale luminance is mapped onto a plausible SST range; the other surface
-    fields keep the chosen day's values."""
+    `colormap="grayscale"` reads brightness as temperature; `colormap="thermal"`
+    inverts the dashboard's colour map so a colour SST map decodes correctly. The
+    other surface fields keep the chosen day's values."""
     from PIL import Image
 
+    H, W = MODEL.lat.size, MODEL.lon.size
     try:
         raw = await file.read()
-        img = Image.open(io.BytesIO(raw)).convert("L")
+        mode = "RGB" if colormap == "thermal" else "L"
+        img = Image.open(io.BytesIO(raw)).convert(mode).resize((W, H))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Could not read image: {e}")
 
-    H, W = MODEL.lat.size, MODEL.lon.size
-    arr = np.asarray(img.resize((W, H))).astype("float32")
-    arr = np.flipud(arr)  # image top -> north; grid row 0 is south
+    arr = np.flipud(np.asarray(img).astype("float32"))  # image top -> north
+    norm = _decode_thermal(arr) if colormap == "thermal" else arr / 255.0
     lo = MODEL.stats["sst"]["mean"] - 2 * MODEL.stats["sst"]["std"]
     hi = MODEL.stats["sst"]["mean"] + 2 * MODEL.stats["sst"]["std"]
-    sst_field = lo + (arr / 255.0) * (hi - lo)
+    sst_field = lo + norm * (hi - lo)
 
     try:
-        r = MODEL.reconstruct(date, model, sst_override=sst_field)
+        r = MODEL.reconstruct(date, model, sst_override=sst_field.astype("float32"))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return _reconstruct_response(r, date, model)

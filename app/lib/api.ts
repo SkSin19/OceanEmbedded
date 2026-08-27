@@ -95,12 +95,14 @@ export async function reconstructWhatIf(
 export async function reconstructImage(
   date: string,
   model: ModelName,
-  file: File
+  file: File,
+  colormap: "grayscale" | "thermal" = "grayscale"
 ): Promise<Reconstruction> {
   const form = new FormData();
   form.append("file", file);
   form.append("date", date);
   form.append("model", model);
+  form.append("colormap", colormap);
   const res = await fetch(`${API_BASE}/reconstruct/image`, { method: "POST", body: form });
   if (!res.ok) throw new Error(`image reconstruct failed (${res.status})`);
   return res.json();

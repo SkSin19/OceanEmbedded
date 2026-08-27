@@ -1,0 +1,235 @@
+======================================================================
+OceanEmbed - Usage Guide (exact, step by step)
+SIH 2026, Problem 26066
+======================================================================
+
+WHAT THIS IS
+------------
+A full stack app that reconstructs 3D subsurface ocean temperature (15
+depth levels, 0 to 1000 m) from surface satellite fields over the North
+Indian Ocean, at 0.25 degree daily resolution.
+
+Three parts:
+  1. model/   Python + PyTorch: data pipeline, the two models, the API
+  2. app/     Next.js dashboard (the UI you show)
+  3. data     real GLORYS + satellite winds + gridded ARGO (August 2008)
+
+You run TWO servers at the same time:
+  - the API      (Python)  on http://localhost:8010
+  - the frontend (Next.js) on http://localhost:3000
+
+
+======================================================================
+PART A. EVERY TIME YOU WANT TO USE IT (the normal case)
+======================================================================
+Everything is already built. You only need to start the two servers.
+Open TWO terminals.
+
+--- Terminal 1: the API (Python backend) ---
+  cd D:\1AFullStackProj\SIH\OceanEmbedded\oceanembedded\model
+  .\.venv\Scripts\Activate.ps1
+  .\.venv\Scripts\python.exe -m uvicorn serve.app:app --port 8010
+
+  Wait until you see: "Application startup complete".
+  Test it: open http://localhost:8010/health
+  It should say: {"status":"ok","dates":31}
+
+  IMPORTANT: the port is 8010 (not 8000). Port 8000 is blocked on this PC.
+
+--- Terminal 2: the frontend (the app) ---
+  cd D:\1AFullStackProj\SIH\OceanEmbedded\oceanembedded
+  npm run dev
+
+  Wait until you see: "Ready in ...".
+  It prints the URL, normally http://localhost:3000
+  (if 3000 is taken it uses 3001, use whatever it prints).
+
+--- Open the app ---
+  Open the printed URL in your browser (http://localhost:3000).
+  Top right should show a green "Live inference" badge. If it says
+  "Static sample" instead, the API is not running: fix Terminal 1.
+
+To stop: press Ctrl+C in each terminal.
+
+
+======================================================================
+PART B. USING THE APP
+======================================================================
+There are two tabs at the top right: EXPLORER and PLAYGROUND.
+
+----------------------------------------------------------------------
+B1. EXPLORER tab  (the analysis / results view)
+----------------------------------------------------------------------
+Controls (top):
+  - Model:  "CNN embedding" (best) or "MLP baseline".
+  - Date:   pick any day in August 2008 (drives live reconstruction).
+  - Validation:  "GLORYS holdout"  or  "Independent ARGO".
+       Holdout  = tested on unseen GLORYS days (RMSE ~0.38 C for CNN).
+       ARGO     = tested on real independent ARGO floats (RMSE ~0.96 C,
+                  correlation 0.99). Use this to prove real skill.
+       (ARGO is available for the CNN model.)
+
+KPI row: overall RMSE, correlation, bias for the current model +
+validation choice.
+
+The map:
+  - Buttons: Predicted / Truth / Error / Embedding.
+       Predicted = the model output. Truth = GLORYS. Error = the two
+       differenced. Embedding = the CNN's learned latent state as colour.
+  - Depth slider: choose the depth shown on the map (0 to 1000 m).
+  - Click any ocean point on the map to load its vertical profile on the
+    right (predicted vs truth).
+
+Skill by depth (bottom): RMSE bars + correlation line per depth. The
+active depth is highlighted.
+
+----------------------------------------------------------------------
+B2. PLAYGROUND tab  (the live demo for judges)
+----------------------------------------------------------------------
+Two modes (buttons at the top of Controls):
+
+  MODE 1: "Heatwave what-if"
+    - Move the SST shift slider (-3 to +3 C) or SSH shift slider.
+    - The model re-reconstructs live.
+    - Watch the profile: the dashed amber line (modified) separates from
+      the solid blue line (unmodified) to show how the surface change
+      propagates with depth. This is the physically meaningful demo.
+
+  MODE 2: "Upload image"
+    - Click the upload box and choose an image.
+    - CHECKBOX "Image uses the SST colormap":
+         OFF = the image brightness is read as temperature (use this for
+               a grayscale image).
+         ON  = a COLOURED SST map is decoded back to temperature (use
+               this for the colour map demo_sst_colored.png).
+    - The left map shows the SST you fed in; the right map shows the
+      reconstruction; the profile shows that point.
+
+  In both modes: use "Base day" to choose which day's other surface
+  fields (salinity, height, currents, winds) are used, and "Model".
+
+
+======================================================================
+PART C. THE DEMO IMAGES (in model\data\demo\)
+======================================================================
+  demo_sst_colored.png    Realistic COLOUR SST map. UPLOAD THIS with the
+                          "Image uses the SST colormap" checkbox ON.
+                          Reconstructs the true subsurface (~0.01 C).
+
+  demo_sst_grayscale.png  Same field in grayscale. Upload with the
+                          checkbox OFF. Also reconstructs the truth.
+
+  demo_sst_colorbar.png   Labelled version (colour bar + title). SHOW THIS
+                          ON YOUR SLIDE. Do NOT upload it (the colour bar
+                          band would distort the bottom edge).
+
+Regenerate for another date (from model\, venv active):
+  .\.venv\Scripts\python.exe scripts\make_demo_sst.py 2008-08-20
+
+
+======================================================================
+PART D. SUGGESTED 30-SECOND JUDGE SCRIPT
+======================================================================
+  1. Slide: show demo_sst_colorbar.png.
+     "A real satellite SST map of the Arabian Sea, August 2008 monsoon.
+      Note the cold Somali upwelling and the warm Bay of Bengal."
+  2. App: Playground > Upload image > tick "Image uses the SST colormap"
+     > upload demo_sst_colored.png.
+     "From this surface alone the model reconstructs temperature at 15
+      depths." Click a point to show the profile.
+  3. App: Explorer > Validation > Independent ARGO.
+     "Against real, independent ARGO floats: about 1 degree C error,
+      correlation 0.99."
+
+
+======================================================================
+PART E. REBUILDING FROM SCRATCH (only if data/models are missing)
+======================================================================
+You normally never need this. Do it only to change the region/dates or
+if the model files are gone.
+
+One time setup (from model\):
+  cd D:\1AFullStackProj\SIH\OceanEmbedded\oceanembedded\model
+  py -3.13 -m venv .venv
+  .\.venv\Scripts\Activate.ps1
+  pip install -r requirements.txt
+  pip uninstall -y torch
+  pip install torch --index-url https://download.pytorch.org/whl/cu124
+  copernicusmarine login          (enter your Copernicus username/password)
+
+Frontend deps (from the repo root, once):
+  cd D:\1AFullStackProj\SIH\OceanEmbedded\oceanembedded
+  npm install
+
+Build data + models (from model\, venv active), in this order:
+  python scripts\download.py           GLORYS + satellite winds
+  python scripts\harmonize.py          regrid, add winds, make nio.zarr
+  python scripts\train.py              MLP baseline
+  python scripts\train_cnn.py          CNN embedding model (uses the GPU)
+  python scripts\validate_argo.py cnn  independent ARGO validation
+  python scripts\make_demo_sst.py      the demo images
+
+To change the study window: edit model\config.yaml (time.start/end and,
+if needed, the dataset ids), then rerun from download.py.
+
+RULE: stop the API server (Terminal 1) before running harmonize.py.
+On Windows the running server keeps nio.zarr open and the write fails.
+
+
+======================================================================
+PART F. TROUBLESHOOTING
+======================================================================
+Badge says "Static sample", app not live:
+  The API is down or on the wrong port. Start Terminal 1 and confirm
+  http://localhost:8010/health returns ok.
+
+"Port 3000 is in use" / app will not start / zombie server:
+  Kill node and restart:
+    powershell -Command "Get-Process node | Stop-Process -Force"
+    (then) npm run dev
+
+Port 8010 already in use (restarting the API):
+  powershell -Command "Get-NetTCPConnection -LocalPort 8010 -State Listen | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }"
+  (then start uvicorn again)
+
+Uploaded image gives a wrong looking result:
+  If it is a COLOUR SST map, turn the "Image uses the SST colormap"
+  checkbox ON. If it is grayscale, turn it OFF.
+
+harmonize.py fails with "Access is denied" on nio.zarr:
+  The API server is holding the file. Stop Terminal 1, then rerun.
+
+"No module named torch":
+  The venv is not active. Run: .\.venv\Scripts\Activate.ps1
+  Then check: python -c "import torch; print(torch.cuda.is_available())"
+
+Check GPU is being used for training:
+  python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+  Should print a version ending in +cu124 and True.
+
+
+======================================================================
+PART G. FILE MAP
+======================================================================
+  model\config.yaml           region, dates, depths, dataset ids (edit here)
+  model\scripts\download.py    pull GLORYS + winds from Copernicus
+  model\scripts\harmonize.py   regrid + winds -> data\processed\nio.zarr
+  model\scripts\train.py       MLP baseline -> checkpoints\baseline.pt
+  model\scripts\train_cnn.py   CNN -> checkpoints\cnn.pt (+ embedding)
+  model\scripts\validate_argo.py  independent ARGO validation
+  model\scripts\make_demo_sst.py  build the demo SST images
+  model\serve\app.py           the FastAPI server (endpoints)
+  model\serve\inference.py     loads models, does reconstruction
+  app\components\App.tsx        top nav (Explorer / Playground)
+  app\components\Dashboard.tsx  the Explorer view
+  app\components\Playground.tsx the demo view
+  public\data\*.json           metrics + samples the UI reads
+  ARCHITECTURE.md              full technical write up
+  RUN.md                       condensed run guide
+
+The API endpoints (browse http://localhost:8010 + path):
+  /health  /models  /meta  /metrics?model=&validation=
+  /prediction?date=&model=   /profile?lat=&lon=&date=&model=
+  /embedding?date=
+  POST /reconstruct   POST /reconstruct/image
+======================================================================

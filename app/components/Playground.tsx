@@ -28,6 +28,7 @@ export default function Playground({ source, meta, models }: Props) {
   const [picked, setPicked] = useState<{ row: number; col: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [imageName, setImageName] = useState<string | null>(null);
+  const [isColormap, setIsColormap] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -54,12 +55,12 @@ export default function Playground({ source, meta, models }: Props) {
     };
   }, [source, mode, date, model, sstOffset, sshOffset]);
 
-  async function onImage(file: File) {
+  async function onImage(file: File, colormap: "grayscale" | "thermal") {
     setImageName(file.name);
     setLoading(true);
     setError(null);
     try {
-      const r = await reconstructImage(date, model, file);
+      const r = await reconstructImage(date, model, file, colormap);
       setResult(r);
       setPicked((p) => p ?? nearestOcean(r.baseline[0], r.lat, r.lon, 15, 65));
     } catch (e) {
@@ -213,7 +214,7 @@ export default function Playground({ source, meta, models }: Props) {
                 accept="image/*"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) onImage(f);
+                  if (f) onImage(f, isColormap ? "thermal" : "grayscale");
                 }}
                 className="hidden"
               />
@@ -223,10 +224,20 @@ export default function Playground({ source, meta, models }: Props) {
               >
                 {imageName ? `Selected: ${imageName}` : "Click to upload an image"}
               </button>
+              <label className="mt-3 flex items-center gap-2 text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={isColormap}
+                  onChange={(e) => setIsColormap(e.target.checked)}
+                  className="accent-amber-500"
+                />
+                Image uses the SST colormap (decode colours back to temperature)
+              </label>
               <p className="mt-2 text-xs text-slate-500">
-                Any image works. Its brightness is mapped onto a plausible SST range
-                and fed to the model as the surface temperature field, over the
-                ocean mask of the chosen day.
+                Off: brightness is read as temperature (grayscale SST). On: a colour
+                SST map is decoded via the dashboard colour scale, so a real-looking
+                colour map reconstructs correctly. The field is fed to the model over
+                the ocean mask of the chosen day.
               </p>
             </div>
           )}
