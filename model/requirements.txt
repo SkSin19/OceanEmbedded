@@ -1,0 +1,19 @@
+# Data pipeline (install these first, they are light)
+copernicusmarine>=2.0.0
+xarray>=2024.6.0
+netCDF4>=1.6.5
+zarr>=2.18.0
+dask>=2024.7.0
+scipy>=1.13.0
+numpy>=1.26.0
+pyyaml>=6.0
+tqdm>=4.66.0
+
+# Backend (FastAPI inference server)
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+
+# Model training (install later, torch is a large download).
+# For the GTX 1650 (CUDA), install torch from the official index instead:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+# torch>=2.3.0

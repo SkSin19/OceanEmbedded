@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // ML side is Python; its venv bundles third-party JS we do not lint.
+    "model/**",
   ]),
 ]);
 

@@ -1,0 +1,51 @@
+# OceanEmbed data + model configuration
+# Single source of truth for the pipeline. Change the subset here, not in code.
+
+region:
+  # North Indian Ocean box from the problem statement
+  min_lat: 5.0
+  max_lat: 30.0
+  min_lon: 45.0
+  max_lon: 105.0
+  resolution: 0.25   # target grid spacing in degrees
+
+time:
+  # August 2008: peak SW monsoon (strong, dynamic winds) inside the window where
+  # BOTH the GLORYS reanalysis and the reprocessed L4 satellite winds exist.
+  start: "2008-08-01"
+  end: "2008-08-31"
+
+# The 15 standard depth levels (meters) the model must reconstruct.
+depths: [0, 5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 300, 500, 700, 1000]
+
+# Surface variables used as model INPUTS.
+# For the first working pipeline we take these from GLORYS so every field is
+# co-located and harmonized. Real satellite L4 products can be swapped in later
+# (see model/README.md -> "Upgrading to real satellite inputs").
+surface_inputs:
+  sst: thetao   # sea surface temperature  (thetao at 0 m)
+  sss: so       # sea surface salinity     (so at 0 m)
+  ssh: zos      # sea surface height       (zos)
+  u:   uo       # surface zonal current    (uo at 0 m)
+  v:   vo       # surface meridional current(vo at 0 m)
+
+# Surface winds come from a separate CMEMS reprocessed L4 satellite wind product,
+# harmonized onto the same 0.25 deg daily grid (hourly source averaged to daily).
+wind_inputs:
+  uwnd: eastward_wind    # 10 m eastward wind
+  vwnd: northward_wind   # 10 m northward wind
+
+# Target variable = subsurface temperature at the depths above.
+target: thetao
+
+copernicus:
+  # GLORYS12V1 multi-year physics, daily means, 1/12 deg (regridded to 0.25 here).
+  # Verify the id with:  copernicusmarine describe --contains glo_phy_my
+  dataset_id: "cmems_mod_glo_phy_my_0.083deg_P1D-m"
+  # Reprocessed L4 blended satellite winds, hourly 0.25 deg (1994-2009 coverage).
+  wind_dataset_id: "cmems_obs-wind_glo_phy_my_l4_0.25deg_PT1H"
+
+paths:
+  raw: "data/raw"           # downloaded NetCDF (git-ignored, large)
+  processed: "data/processed"  # harmonized Zarr + stats
+  web_export: "../public/data" # small JSON/tiles the Next.js app reads

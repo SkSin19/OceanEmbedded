@@ -1,0 +1,9 @@
+# Large data + trained artifacts stay out of git
+data/raw/
+data/processed/
+*.nc
+*.zarr/
+checkpoints/
+.venv/
+__pycache__/
+*.pyc
