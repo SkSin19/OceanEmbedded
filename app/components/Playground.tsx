@@ -73,7 +73,7 @@ export default function Playground({ source, meta, models }: Props) {
   if (source !== "api") {
     return (
       <div className="mx-auto max-w-2xl p-8">
-        <p className="rounded-lg bg-amber-500/10 p-4 text-sm text-amber-200 ring-1 ring-amber-500/30">
+        <p className="glass-panel rounded-2xl p-4 text-sm text-amber-200 ring-1 ring-amber-500/30">
           The playground runs the model on modified inputs, so it needs the live
           backend. Start it with{" "}
           <code className="rounded bg-black/30 px-1">uvicorn serve.app:app --port 8010</code>{" "}
@@ -98,9 +98,15 @@ export default function Playground({ source, meta, models }: Props) {
       : null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <p className="max-w-2xl text-sm text-slate-400">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="animate-fade-up mb-8 max-w-xl">
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium tracking-wide text-amber-300 ring-1 ring-amber-500/20">
+          What-if playground
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
+          Perturb the surface, watch the depths respond
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-slate-400">
           Feed the model a modified surface state and watch the subsurface it
           predicts. Shift SST to simulate a marine heatwave, or upload an image as
           the SST field. The dashed line is the new reconstruction; the solid line
@@ -108,8 +114,8 @@ export default function Playground({ source, meta, models }: Props) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <section className="rounded-xl bg-slate-900/60 p-4 ring-1 ring-white/10">
+      <div className="animate-fade-up grid grid-cols-1 gap-6 lg:grid-cols-3" style={{ animationDelay: "80ms" }}>
+        <section className="glass-panel rounded-2xl p-4">
           <h2 className="mb-3 text-sm font-medium text-slate-200">Controls</h2>
 
           <div className="mb-4 inline-flex rounded-lg bg-slate-800 p-0.5 text-sm">
@@ -242,7 +248,12 @@ export default function Playground({ source, meta, models }: Props) {
             </div>
           )}
 
-          {loading && <p className="mt-3 text-xs text-amber-400">Reconstructing...</p>}
+          {loading && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-400">
+              <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-amber-900 border-t-amber-400" />
+              Reconstructing...
+            </p>
+          )}
           {error && <p className="mt-3 text-xs text-rose-400">{error}</p>}
           {surfaceDelta !== null && (
             <p className="mt-4 text-xs text-slate-400">
@@ -256,7 +267,7 @@ export default function Playground({ source, meta, models }: Props) {
           )}
         </section>
 
-        <section className="lg:col-span-2 rounded-xl bg-slate-900/60 p-4 ring-1 ring-white/10">
+        <section className="glass-panel rounded-2xl p-4 transition-opacity duration-300 lg:col-span-2" style={{ opacity: loading ? 0.6 : 1 }}>
           {!result ? (
             <div className="flex h-80 items-center justify-center text-sm text-slate-400">
               Adjust a control to run the model.

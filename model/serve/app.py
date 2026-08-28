@@ -145,6 +145,26 @@ def profile(lat: float = Query(...), lon: float = Query(...),
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@app.get("/surface")
+def surface(date: str = Query(...)) -> dict:
+    """The real surface input fields for one day, as the model sees them.
+
+    Backs the map's layer switcher: each layer is an actual harmonized channel
+    (GLORYS sst/sss/ssh/u/v + satellite winds), not a decorative toggle.
+    """
+    try:
+        fields = MODEL.surface_fields(date)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    lat, lon = _coords()
+    return {
+        "date": date,
+        "lat": lat,
+        "lon": lon,
+        "fields": {k: _round2d(v) for k, v in fields.items()},
+    }
+
+
 @app.get("/embedding")
 def embedding(date: str = Query(...)) -> dict:
     try:

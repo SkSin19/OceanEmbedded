@@ -1,15 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Embedding, Grid, Meta, Metrics, ModelName, Prediction } from "../lib/types";
-import {
-  loadEmbedding,
-  loadMetrics,
-  loadPrediction,
-  type Source,
-  type Validation,
-} from "../lib/api";
-import { errorGrid, gridExtent, nearestOcean } from "../lib/grid";
+import { loadEmbedding, loadMetrics, type Source, type Validation } from "../lib/api";
+import { errorGrid, gridExtent } from "../lib/grid";
 import { MODEL_LABEL } from "../lib/labels";
 import HeatmapCanvas from "./HeatmapCanvas";
 import EmbeddingCanvas from "./EmbeddingCanvas";
@@ -23,20 +17,34 @@ interface DashboardProps {
   source: Source;
   meta: Meta;
   models: ModelName[];
+  pred: Prediction | null;
+  date: string;
+  model: ModelName;
+  loading: boolean;
+  picked: { row: number; col: number } | null;
+  onDate: (d: string) => void;
+  onModel: (m: ModelName) => void;
+  onPick: (p: { row: number; col: number }) => void;
 }
 
-export default function Dashboard({ source, meta, models }: DashboardProps) {
+export default function Dashboard({
+  source,
+  meta,
+  models,
+  pred,
+  date,
+  model,
+  loading: switching,
+  picked,
+  onDate,
+  onModel,
+  onPick,
+}: DashboardProps) {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [pred, setPred] = useState<Prediction | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [depthIdx, setDepthIdx] = useState(0);
   const [view, setView] = useState<View>("predicted");
-  const [picked, setPicked] = useState<{ row: number; col: number } | null>(null);
-
-  const [date, setDate] = useState<string>(meta.times[meta.times.length - 1]);
-  const [switching, setSwitching] = useState(false);
-  const [model, setModel] = useState<ModelName>(models.includes("cnn") ? "cnn" : "baseline");
   const [embedding, setEmbedding] = useState<Embedding | null>(null);
   const [validation, setValidation] = useState<Validation>("holdout");
 
@@ -50,28 +58,6 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
       active = false;
     };
   }, [source, model, validation]);
-
-  // Reconstruction follows date + model.
-  useEffect(() => {
-    if (!date) return;
-    let active = true;
-    (async () => {
-      setSwitching(true);
-      try {
-        const p = await loadPrediction(source, date, model);
-        if (!active) return;
-        setPred(p);
-        setPicked((prev) => prev ?? nearestOcean(p.truth[0], p.lat, p.lon, 15, 65));
-      } catch (e) {
-        if (active) setError(String(e));
-      } finally {
-        if (active) setSwitching(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [source, date, model]);
 
   // Embedding is loaded on demand when its view is active.
   useEffect(() => {
@@ -121,12 +107,21 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
   const activeDepth = meta.depths[depthIdx];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <p className="max-w-md text-sm text-slate-400">
-          Subsurface temperature reconstructed from surface satellite fields.
-          North Indian Ocean, {meta.region.resolution} deg daily.
-        </p>
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <header className="animate-fade-up mb-8 flex flex-wrap items-start justify-between gap-6">
+        <div className="max-w-xl">
+          <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 px-2.5 py-1 text-[11px] font-medium tracking-wide text-cyan-300 ring-1 ring-cyan-500/20">
+            North Indian Ocean &middot; {meta.region.resolution}&deg; daily
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
+            Subsurface temperature reconstruction
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-400">
+            A satellite-embedding deep network turns surface fields — SST, SSH,
+            SSS, currents — into a full temperature profile, validated against
+            independent Argo floats.
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -137,7 +132,7 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${
-                source === "api" ? "bg-emerald-400" : "bg-slate-400"
+                source === "api" ? "bg-emerald-400 animate-pulse-slow" : "bg-slate-400"
               }`}
             />
             {source === "api" ? "Live inference" : "Static sample"}
@@ -148,12 +143,12 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
               value={model}
               onChange={(e) => {
                 const m = e.target.value as ModelName;
-                setModel(m);
+                onModel(m);
                 if (m !== "cnn" && view === "embedding") setView("predicted");
                 if (m !== "cnn" && validation === "argo") setValidation("holdout");
               }}
               disabled={models.length < 2}
-              className="rounded-md bg-slate-800 px-2 py-1 text-slate-100 ring-1 ring-white/10 disabled:opacity-50"
+              className="rounded-md bg-slate-800 px-2 py-1.5 text-slate-100 ring-1 ring-white/10 transition hover:ring-white/20 disabled:opacity-50"
             >
               {models.map((m) => (
                 <option key={m} value={m}>
@@ -166,9 +161,9 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
             <span className="text-slate-500">Date</span>
             <select
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => onDate(e.target.value)}
               disabled={source !== "api"}
-              className="rounded-md bg-slate-800 px-2 py-1 text-slate-100 ring-1 ring-white/10 disabled:opacity-50"
+              className="rounded-md bg-slate-800 px-2 py-1.5 text-slate-100 ring-1 ring-white/10 transition hover:ring-white/20 disabled:opacity-50"
             >
               {meta.times.map((t) => (
                 <option key={t} value={t}>
@@ -180,7 +175,7 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
         </div>
       </header>
 
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+      <div className="animate-fade-up mb-4 flex flex-wrap items-center gap-3" style={{ animationDelay: "60ms" }}>
         <span className="text-xs uppercase tracking-wide text-slate-500">Validation</span>
         <div className="inline-flex rounded-lg bg-slate-800 p-0.5 text-sm">
           {(["holdout", "argo"] as Validation[]).map((v) => {
@@ -206,15 +201,21 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
         </span>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Overall RMSE" value={`${metrics.overall.rmse.toFixed(3)} degC`} />
-        <Kpi label="Correlation" value={metrics.overall.corr.toFixed(3)} />
-        <Kpi label="Bias" value={`${metrics.overall.bias.toFixed(3)} degC`} />
-        <Kpi label="Depth levels" value={`${meta.depths.length}`} />
+      <div
+        className="animate-fade-up mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+        style={{ animationDelay: "100ms" }}
+      >
+        <Kpi label="Overall RMSE" value={`${metrics.overall.rmse.toFixed(3)}`} unit="degC" icon="rmse" />
+        <Kpi label="Correlation" value={metrics.overall.corr.toFixed(3)} icon="corr" />
+        <Kpi label="Bias" value={`${metrics.overall.bias >= 0 ? "+" : ""}${metrics.overall.bias.toFixed(3)}`} unit="degC" icon="bias" />
+        <Kpi label="Depth levels" value={`${meta.depths.length}`} unit="0-1000m" icon="depth" />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <section className="lg:col-span-2 rounded-xl bg-slate-900/60 p-4 ring-1 ring-white/10">
+      <div
+        className="animate-fade-up grid grid-cols-1 gap-6 lg:grid-cols-3"
+        style={{ animationDelay: "140ms" }}
+      >
+        <section className="glass-panel rounded-2xl p-4 transition-shadow lg:col-span-2">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex rounded-lg bg-slate-800 p-0.5 text-sm">
               {(["predicted", "truth", "error", "embedding"] as View[]).map((v) => {
@@ -233,7 +234,10 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
                 );
               })}
             </div>
-            <span className="text-sm text-slate-400">
+            <span className="inline-flex items-center gap-1.5 text-sm text-slate-400">
+              {switching && (
+                <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-slate-600 border-t-amber-400" />
+              )}
               {switching
                 ? "Reconstructing..."
                 : view === "embedding"
@@ -242,43 +246,45 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
             </span>
           </div>
 
-          {view === "embedding" ? (
-            <div>
-              {embedding ? (
-                <EmbeddingCanvas rgb={embedding.rgb} />
-              ) : (
-                <div className="flex aspect-[241/101] items-center justify-center rounded-lg bg-slate-800/50 text-sm text-slate-400">
-                  Computing embedding...
-                </div>
-              )}
-              <p className="mt-3 text-xs leading-5 text-slate-400">
-                The learned satellite embedding: the CNN bottleneck reduced to RGB
-                by PCA. Regions the model represents similarly share a colour,
-                exposing water masses and dynamic structures it uses to infer the
-                subsurface.
-              </p>
-            </div>
-          ) : (
-            <>
-              <HeatmapCanvas
-                grid={displayGrid ?? pred.truth[depthIdx]}
-                mode={view === "error" ? "diverging" : "thermal"}
-                min={scale.min}
-                max={scale.max}
-                absMax={scale.absMax}
-                picked={picked}
-                onPick={(row, col) => setPicked({ row, col })}
-              />
-              <div className="mt-3">
-                <Legend
+          <div className={`transition-opacity duration-300 ${switching ? "opacity-50" : "opacity-100"}`}>
+            {view === "embedding" ? (
+              <div>
+                {embedding ? (
+                  <EmbeddingCanvas rgb={embedding.rgb} />
+                ) : (
+                  <div className="flex aspect-241/101 items-center justify-center rounded-lg bg-slate-800/50 text-sm text-slate-400">
+                    Computing embedding...
+                  </div>
+                )}
+                <p className="mt-3 text-xs leading-5 text-slate-400">
+                  The learned satellite embedding: the CNN bottleneck reduced to RGB
+                  by PCA. Regions the model represents similarly share a colour,
+                  exposing water masses and dynamic structures it uses to infer the
+                  subsurface.
+                </p>
+              </div>
+            ) : (
+              <>
+                <HeatmapCanvas
+                  grid={displayGrid ?? pred.truth[depthIdx]}
                   mode={view === "error" ? "diverging" : "thermal"}
                   min={scale.min}
                   max={scale.max}
                   absMax={scale.absMax}
+                  picked={picked}
+                  onPick={(row, col) => onPick({ row, col })}
                 />
-              </div>
-            </>
-          )}
+                <div className="mt-3">
+                  <Legend
+                    mode={view === "error" ? "diverging" : "thermal"}
+                    min={scale.min}
+                    max={scale.max}
+                    absMax={scale.absMax}
+                  />
+                </div>
+              </>
+            )}
+          </div>
 
           <div className={`mt-4 ${view === "embedding" ? "hidden" : ""}`}>
             <label className="flex items-center justify-between text-sm text-slate-300">
@@ -296,11 +302,16 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
           </div>
         </section>
 
-        <section className="rounded-xl bg-slate-900/60 p-4 ring-1 ring-white/10">
+        <section className="glass-panel rounded-2xl p-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-slate-200">Vertical profile</h2>
+            <h2 className="flex items-center gap-1.5 text-sm font-medium text-slate-200">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-cyan-400" fill="none">
+                <path d="M12 3v18M6 8l6-5 6 5M6 16l6 5 6-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Vertical profile
+            </h2>
             {pickedLat !== null && (
-              <span className="font-mono text-xs text-slate-400">
+              <span className="rounded-md bg-slate-800/80 px-1.5 py-0.5 font-mono text-[11px] text-slate-400">
                 {pickedLat.toFixed(2)} N, {pickedLon?.toFixed(2)} E
               </span>
             )}
@@ -317,27 +328,60 @@ export default function Dashboard({ source, meta, models }: DashboardProps) {
         </section>
       </div>
 
-      <section className="mt-6 rounded-xl bg-slate-900/60 p-4 ring-1 ring-white/10">
-        <h2 className="mb-1 text-sm font-medium text-slate-200">Skill by depth</h2>
+      <section
+        className="glass-panel animate-fade-up mt-6 rounded-2xl p-4"
+        style={{ animationDelay: "180ms" }}
+      >
+        <h2 className="mb-1 flex items-center gap-1.5 text-sm font-medium text-slate-200">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-emerald-400" fill="none">
+            <path d="M4 20V10M10 20V4M16 20v-7M22 20v-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Skill by depth
+        </h2>
         <p className="mb-3 text-xs text-slate-400">
           Bars: RMSE per depth. Line: correlation (right axis). The active depth is highlighted.
         </p>
         <SkillChart perDepth={metrics.per_depth} activeDepth={activeDepth} />
       </section>
 
-      <footer className="mt-8 text-xs text-slate-500">
-        SIH 2026 . Problem 26066 . {MODEL_LABEL[model]} model. Validation is a
-        temporal holdout of the last 7 days.
+      <footer className="mt-10 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-4 text-xs text-slate-500">
+        <span>SIH 2026 &middot; Problem 26066 &middot; {MODEL_LABEL[model]} model</span>
+        <span>Validation is a temporal holdout of the last 7 days.</span>
       </footer>
     </div>
   );
 }
 
-function Kpi({ label, value }: { label: string; value: string }) {
+const KPI_ICON: Record<string, ReactNode> = {
+  rmse: (
+    <path d="M3 12h4l2-7 4 14 2-7h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  corr: (
+    <path d="M4 20 20 4M4 4l4 4M20 20l-4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  bias: (
+    <path d="M12 3v18M5 10l7-7 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+  depth: (
+    <path d="M3 15c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0M12 3v9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  ),
+};
+
+function Kpi({ label, value, unit, icon }: { label: string; value: string; unit?: string; icon?: string }) {
   return (
-    <div className="rounded-xl bg-slate-900/60 p-4 ring-1 ring-white/10">
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold text-slate-50">{value}</div>
+    <div className="glass-panel group rounded-2xl p-4 transition-transform duration-200 hover:-translate-y-0.5">
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+        {icon && (
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-slate-600 transition-colors group-hover:text-cyan-400" fill="none">
+            {KPI_ICON[icon]}
+          </svg>
+        )}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1">
+        <span className="text-xl font-semibold text-slate-50 sm:text-2xl">{value}</span>
+        {unit && <span className="text-xs text-slate-500">{unit}</span>}
+      </div>
     </div>
   );
 }

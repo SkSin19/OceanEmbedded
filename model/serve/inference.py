@@ -172,6 +172,15 @@ class OceanModel:
             "truth": clean(r["truth"][:, ri, ci]),
         }
 
+    def surface_fields(self, date: str) -> dict:
+        """The harmonized surface inputs for one day, in physical units.
+
+        Land (and, for winds, coastal gaps) stays NaN so the client can mask it.
+        """
+        t = self._time_index(date)
+        fields, _, mask = self._raw_physical(t)
+        return {v: np.where(mask, fields[v], np.nan) for v in INPUT_VARS}
+
     def embedding(self, date: str) -> dict:
         """PCA of the CNN bottleneck -> RGB image of the learned latent state."""
         if self.cnn is None:

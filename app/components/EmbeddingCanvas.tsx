@@ -37,7 +37,7 @@ export default function EmbeddingCanvas({ rgb }: { rgb: RGB[][] }) {
   }, [rgb, H, W]);
 
   return (
-    <div className="w-full overflow-hidden rounded-lg ring-1 ring-white/10">
+    <div className="w-full overflow-hidden rounded-xl ring-1 ring-white/10">
       <canvas
         ref={canvasRef}
         className="block w-full"

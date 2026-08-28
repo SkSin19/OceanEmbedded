@@ -75,7 +75,7 @@ export default function HeatmapCanvas({
   const markerTop = picked ? ((H - 1 - picked.row + 0.5) / H) * 100 : 0;
 
   return (
-    <div className="relative w-full overflow-hidden rounded-lg ring-1 ring-white/10">
+    <div className="relative w-full overflow-hidden rounded-xl ring-1 ring-white/10">
       <canvas
         ref={canvasRef}
         onClick={handleClick}

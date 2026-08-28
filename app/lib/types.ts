@@ -49,6 +49,23 @@ export interface Embedding {
   rgb: RGB[][]; // [lat][lon]
 }
 
+export interface Profile {
+  lat: number;
+  lon: number;
+  depths: number[];
+  predicted: (number | null)[];
+  truth: (number | null)[];
+}
+
+export type SurfaceVar = "sst" | "sss" | "ssh" | "u" | "v" | "uwnd" | "vwnd";
+
+export interface Surface {
+  date: string;
+  lat: number[];
+  lon: number[];
+  fields: Partial<Record<SurfaceVar, Grid>>;
+}
+
 export interface Reconstruction {
   date: string;
   model: ModelName;

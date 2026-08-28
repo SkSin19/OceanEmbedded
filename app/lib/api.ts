@@ -7,7 +7,9 @@ import type {
   Metrics,
   ModelName,
   Prediction,
+  Profile,
   Reconstruction,
+  Surface,
 } from "./types";
 
 export const API_BASE =
@@ -74,6 +76,32 @@ export function loadEmbedding(source: Source, date: string): Promise<Embedding> 
   return json<Embedding>(
     source === "api" ? `${API_BASE}/embedding?date=${date}` : "/data/embedding_sample.json"
   );
+}
+
+// Profile at an arbitrary lat/lon. With the backend this is a real forward pass
+// at the nearest grid cell; without it, the caller samples the static grid.
+export function loadProfile(
+  date: string,
+  lat: number,
+  lon: number,
+  model: ModelName
+): Promise<Profile> {
+  return json<Profile>(
+    `${API_BASE}/profile?lat=${lat}&lon=${lon}&date=${date}&model=${model}`
+  );
+}
+
+// Real harmonized surface inputs for a day. Static fallback reads the day-0
+// sample the harmonize step exports.
+export async function loadSurface(source: Source, date: string): Promise<Surface> {
+  if (source === "api") return json<Surface>(`${API_BASE}/surface?date=${date}`);
+  const day = await json<{
+    date: string;
+    lat: number[];
+    lon: number[];
+    surface: Surface["fields"];
+  }>("/data/sample_day.json");
+  return { date: day.date, lat: day.lat, lon: day.lon, fields: day.surface };
 }
 
 // The playground needs the live backend to run inference on modified inputs.
