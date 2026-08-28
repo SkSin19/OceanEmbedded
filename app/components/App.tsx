@@ -30,23 +30,29 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 font-sans text-slate-200">
-      <nav className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/80 backdrop-blur">
+    <div className="min-h-screen font-sans text-[color:var(--text)]">
+      <nav className="sticky top-0 z-20 border-b border-[color:var(--line)] bg-[color:var(--bg)]/70 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold tracking-tight text-slate-50">OceanEmbed</span>
-            <span className="hidden text-xs text-slate-500 sm:inline">
-              subsurface temperature from satellite surface fields
+          <div className="flex items-center gap-3">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-sky-400/30 to-indigo-500/20 ring-1 ring-sky-400/30">
+              <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-sky-300 to-cyan-500 shadow-[0_0_12px_2px_rgba(56,189,248,0.6)]" />
             </span>
+            <div className="leading-tight">
+              <div className="bg-gradient-to-r from-sky-200 to-indigo-200 bg-clip-text text-lg font-semibold tracking-tight text-transparent">
+                OceanEmbed
+              </div>
+              <div className="hidden text-[11px] text-[color:var(--faint)] sm:block">
+                subsurface temperature from satellite surface fields
+              </div>
+            </div>
           </div>
-          <div className="inline-flex rounded-lg bg-slate-800 p-0.5 text-sm">
+          <div className="segmented">
             {(["explorer", "playground"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`rounded-md px-3 py-1 capitalize transition ${
-                  tab === t ? "bg-slate-600 text-white" : "text-slate-400 hover:text-slate-200"
-                }`}
+                data-active={tab === t}
+                className="pill capitalize"
               >
                 {t}
               </button>
@@ -56,14 +62,17 @@ export default function App() {
       </nav>
 
       {error ? (
-        <div className="mx-auto max-w-2xl p-8 text-slate-300">
-          <p className="rounded-lg bg-rose-950/50 p-4 ring-1 ring-rose-500/30">
+        <div className="mx-auto max-w-2xl p-8">
+          <p className="card p-4 text-rose-200">
             Could not load model outputs: {error}. Run the ML pipeline so
             public/data is populated, or start the API.
           </p>
         </div>
       ) : source === null || meta === null ? (
-        <div className="p-8 text-slate-400">Loading model outputs...</div>
+        <div className="flex min-h-[60vh] items-center justify-center gap-3 text-[color:var(--muted)]">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-sky-400/40 border-t-sky-300" />
+          Loading model outputs...
+        </div>
       ) : tab === "explorer" ? (
         <Dashboard source={source} meta={meta} models={models} />
       ) : (
