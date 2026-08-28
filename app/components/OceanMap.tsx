@@ -30,6 +30,16 @@ const TEMP_LAYERS: { id: "predicted" | "truth" | "error"; label: string }[] = [
 
 const SURFACE_LAYERS: SurfaceVar[] = ["sst", "sss", "ssh", "u", "v", "uwnd", "vwnd"];
 
+/**
+ * Esri's dark canvas, which needs no API key. Note the {z}/{y}/{x} order and the
+ * lack of {s}/{r} — ArcGIS serves one host and has no retina variant.
+ */
+const esriTiles = (layer: "World_Dark_Gray_Base" | "World_Dark_Gray_Reference") =>
+  `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${layer}/MapServer/tile/{z}/{y}/{x}`;
+
+const ESRI_ATTRIBUTION =
+  '&copy; <a href="https://www.esri.com/">Esri</a>, HERE, Garmin, &copy; OpenStreetMap contributors';
+
 /** Well-known basins in the study region, for quick jumps during a demo. */
 const HOTSPOTS: { name: string; lat: number; lon: number }[] = [
   { name: "Bay of Bengal", lat: 15.0, lon: 88.0 },
@@ -217,18 +227,17 @@ export default function OceanMap({
         attributionControl: true,
       });
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution:
-          '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',
-        subdomains: "abcd",
-        maxZoom: 19,
+      L.tileLayer(esriTiles("World_Dark_Gray_Base"), {
+        attribution: ESRI_ATTRIBUTION,
+        maxZoom: 16,
       }).addTo(map);
 
       // Coastlines on top of the data overlay so the basins stay readable.
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png",
-        { subdomains: "abcd", maxZoom: 19, pane: "shadowPane", opacity: 0.85 }
-      ).addTo(map);
+      L.tileLayer(esriTiles("World_Dark_Gray_Reference"), {
+        maxZoom: 16,
+        pane: "shadowPane",
+        opacity: 0.85,
+      }).addTo(map);
 
       L.control.zoom({ position: "topright" }).addTo(map);
 
