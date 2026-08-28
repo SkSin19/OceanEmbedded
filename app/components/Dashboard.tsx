@@ -8,6 +8,7 @@ import { MODEL_LABEL } from "../lib/labels";
 import HeatmapCanvas from "./HeatmapCanvas";
 import EmbeddingCanvas from "./EmbeddingCanvas";
 import ProfileChart from "./ProfileChart";
+import Column3D from "./Column3D";
 import SkillChart from "./SkillChart";
 import Legend from "./Legend";
 
@@ -47,6 +48,7 @@ export default function Dashboard({
   const [view, setView] = useState<View>("predicted");
   const [embedding, setEmbedding] = useState<Embedding | null>(null);
   const [validation, setValidation] = useState<Validation>("holdout");
+  const [profile3d, setProfile3d] = useState(true);
 
   // Metrics follow the selected model and validation source.
   useEffect(() => {
@@ -127,7 +129,7 @@ export default function Dashboard({
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
               source === "api"
                 ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30"
-                : "bg-slate-700/50 text-slate-300 ring-1 ring-white/10"
+                : "bg-white/5 text-[color:var(--muted)] ring-1 ring-[color:var(--line)]"
             }`}
           >
             <span
@@ -137,8 +139,8 @@ export default function Dashboard({
             />
             {source === "api" ? "Live inference" : "Static sample"}
           </span>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <span className="text-slate-500">Model</span>
+          <label className="flex items-center gap-2 text-sm">
+            <span className="microlabel">Model</span>
             <select
               value={model}
               onChange={(e) => {
@@ -157,8 +159,8 @@ export default function Dashboard({
               ))}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <span className="text-slate-500">Date</span>
+          <label className="flex items-center gap-2 text-sm">
+            <span className="microlabel">Date</span>
             <select
               value={date}
               onChange={(e) => onDate(e.target.value)}
@@ -185,16 +187,15 @@ export default function Dashboard({
                 key={v}
                 onClick={() => enabled && setValidation(v)}
                 disabled={!enabled}
-                className={`rounded-md px-3 py-1 transition disabled:opacity-40 ${
-                  validation === v ? "bg-slate-600 text-white" : "text-slate-400 hover:text-slate-200"
-                }`}
+                data-active={validation === v}
+                className="pill"
               >
                 {v === "holdout" ? "GLORYS holdout" : "Independent ARGO"}
               </button>
             );
           })}
         </div>
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-[color:var(--muted)]">
           {validation === "argo"
             ? "vs IPRC/APDRC gridded ARGO floats (independent of training)"
             : "vs held-out GLORYS days (last 7 of the month)"}
@@ -217,7 +218,7 @@ export default function Dashboard({
       >
         <section className="glass-panel rounded-2xl p-4 transition-shadow lg:col-span-2">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex rounded-lg bg-slate-800 p-0.5 text-sm">
+            <div className="segmented">
               {(["predicted", "truth", "error", "embedding"] as View[]).map((v) => {
                 const enabled = v !== "embedding" || model === "cnn";
                 return (
@@ -225,9 +226,8 @@ export default function Dashboard({
                     key={v}
                     onClick={() => enabled && setView(v)}
                     disabled={!enabled}
-                    className={`rounded-md px-3 py-1 capitalize transition disabled:opacity-40 ${
-                      view === v ? "bg-slate-600 text-white" : "text-slate-400 hover:text-slate-200"
-                    }`}
+                    data-active={view === v}
+                    className="pill capitalize"
                   >
                     {v}
                   </button>
@@ -287,9 +287,9 @@ export default function Dashboard({
           </div>
 
           <div className={`mt-4 ${view === "embedding" ? "hidden" : ""}`}>
-            <label className="flex items-center justify-between text-sm text-slate-300">
+            <label className="flex items-center justify-between text-sm text-[color:var(--muted)]">
               <span>Depth</span>
-              <span className="font-mono text-amber-400">{activeDepth} m</span>
+              <span className="metric font-mono text-[color:var(--accent-warm)]">{activeDepth} m</span>
             </label>
             <input
               type="range"
@@ -297,7 +297,7 @@ export default function Dashboard({
               max={meta.depths.length - 1}
               value={depthIdx}
               onChange={(e) => setDepthIdx(Number(e.target.value))}
-              className="mt-2 w-full accent-amber-500"
+              className="mt-2 w-full"
             />
           </div>
         </section>
@@ -316,15 +316,34 @@ export default function Dashboard({
               </span>
             )}
           </div>
-          <ProfileChart depths={meta.depths} predicted={profilePred} truth={profileTruth} />
-          <div className="mt-2 flex gap-4 text-xs text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-4 bg-sky-400" /> Truth (GLORYS)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-4 bg-amber-500" /> Predicted
-            </span>
-          </div>
+          {pickedLat !== null && (
+            <div className="metric mb-1 font-mono text-xs text-[color:var(--faint)]">
+              {pickedLat.toFixed(2)} N, {pickedLon?.toFixed(2)} E
+            </div>
+          )}
+          {profile3d ? (
+            <Column3D
+              depths={meta.depths}
+              min={scale.min}
+              max={scale.max}
+              columns={[
+                { label: "Predicted", temps: profilePred },
+                { label: "Truth", temps: profileTruth },
+              ]}
+            />
+          ) : (
+            <>
+              <ProfileChart depths={meta.depths} predicted={profilePred} truth={profileTruth} />
+              <div className="mt-2 flex gap-4 text-xs text-[color:var(--muted)]">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-0.5 w-4 bg-sky-400" /> Truth (GLORYS)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-0.5 w-4 bg-amber-500" /> Predicted
+                </span>
+              </div>
+            </>
+          )}
         </section>
       </div>
 

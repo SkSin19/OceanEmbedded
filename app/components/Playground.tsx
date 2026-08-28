@@ -7,6 +7,7 @@ import { gridExtent, nearestOcean } from "../lib/grid";
 import { MODEL_LABEL } from "../lib/labels";
 import HeatmapCanvas from "./HeatmapCanvas";
 import ProfileChart from "./ProfileChart";
+import Column3D from "./Column3D";
 import Legend from "./Legend";
 
 type Mode = "whatif" | "image";
@@ -29,6 +30,7 @@ export default function Playground({ source, meta, models }: Props) {
   const [loading, setLoading] = useState(false);
   const [imageName, setImageName] = useState<string | null>(null);
   const [isColormap, setIsColormap] = useState(false);
+  const [profile3d, setProfile3d] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -76,7 +78,7 @@ export default function Playground({ source, meta, models }: Props) {
         <p className="glass-panel rounded-2xl p-4 text-sm text-amber-200 ring-1 ring-amber-500/30">
           The playground runs the model on modified inputs, so it needs the live
           backend. Start it with{" "}
-          <code className="rounded bg-black/30 px-1">uvicorn serve.app:app --port 8010</code>{" "}
+          <code className="rounded bg-black/40 px-1">uvicorn serve.app:app --port 8010</code>{" "}
           and reload.
         </p>
       </div>
@@ -109,8 +111,8 @@ export default function Playground({ source, meta, models }: Props) {
         <p className="mt-2 text-sm leading-relaxed text-slate-400">
           Feed the model a modified surface state and watch the subsurface it
           predicts. Shift SST to simulate a marine heatwave, or upload an image as
-          the SST field. The dashed line is the new reconstruction; the solid line
-          is the unmodified day.
+          the SST field. The two columns are the new reconstruction and the
+          unmodified day.
         </p>
       </div>
 
@@ -118,28 +120,18 @@ export default function Playground({ source, meta, models }: Props) {
         <section className="glass-panel rounded-2xl p-4">
           <h2 className="mb-3 text-sm font-medium text-slate-200">Controls</h2>
 
-          <div className="mb-4 inline-flex rounded-lg bg-slate-800 p-0.5 text-sm">
+          <div className="segmented mb-4">
             {(["whatif", "image"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`rounded-md px-3 py-1 transition ${
-                  mode === m ? "bg-slate-600 text-white" : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
+              <button key={m} onClick={() => setMode(m)} data-active={mode === m} className="pill">
                 {m === "whatif" ? "Heatwave what-if" : "Upload image"}
               </button>
             ))}
           </div>
 
           <div className="space-y-3 text-sm">
-            <label className="flex items-center justify-between gap-2 text-slate-300">
-              <span className="text-slate-500">Base day</span>
-              <select
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="rounded-md bg-slate-800 px-2 py-1 text-slate-100 ring-1 ring-white/10"
-              >
+            <label className="flex items-center justify-between gap-2">
+              <span className="microlabel">Base day</span>
+              <select value={date} onChange={(e) => setDate(e.target.value)}>
                 {meta.times.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -147,13 +139,13 @@ export default function Playground({ source, meta, models }: Props) {
                 ))}
               </select>
             </label>
-            <label className="flex items-center justify-between gap-2 text-slate-300">
-              <span className="text-slate-500">Model</span>
+            <label className="flex items-center justify-between gap-2">
+              <span className="microlabel">Model</span>
               <select
                 value={model}
                 onChange={(e) => setModel(e.target.value as ModelName)}
                 disabled={models.length < 2}
-                className="rounded-md bg-slate-800 px-2 py-1 text-slate-100 ring-1 ring-white/10 disabled:opacity-50"
+                className="disabled:opacity-50"
               >
                 {models.map((m) => (
                   <option key={m} value={m}>
@@ -317,20 +309,42 @@ export default function Playground({ source, meta, models }: Props) {
                 </div>
               </div>
               <div className="md:col-span-2">
-                <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Profile at the selected point
-                </h3>
-                <div className="mx-auto max-w-sm">
-                  <ProfileChart depths={depths} predicted={modProfile} truth={baseProfile} />
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="microlabel">Profile at the selected point</h3>
+                  <div className="segmented">
+                    <button className="pill" data-active={profile3d} onClick={() => setProfile3d(true)}>
+                      3D
+                    </button>
+                    <button className="pill" data-active={!profile3d} onClick={() => setProfile3d(false)}>
+                      2D
+                    </button>
+                  </div>
                 </div>
-                <div className="mt-2 flex justify-center gap-4 text-xs text-slate-400">
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-0.5 w-4 bg-sky-400" /> Unmodified day
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-0.5 w-4 bg-amber-500" /> Modified input
-                  </span>
-                </div>
+                {profile3d ? (
+                  <Column3D
+                    depths={depths}
+                    min={predScale.min}
+                    max={predScale.max}
+                    columns={[
+                      { label: "Modified", temps: modProfile },
+                      { label: "Unmodified", temps: baseProfile },
+                    ]}
+                  />
+                ) : (
+                  <>
+                    <div className="mx-auto max-w-sm">
+                      <ProfileChart depths={depths} predicted={modProfile} truth={baseProfile} />
+                    </div>
+                    <div className="mt-2 flex justify-center gap-4 text-xs text-[color:var(--muted)]">
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-0.5 w-4 bg-sky-400" /> Unmodified day
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block h-0.5 w-4 bg-amber-500" /> Modified input
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
