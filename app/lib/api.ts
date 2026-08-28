@@ -72,6 +72,125 @@ export function loadPrediction(source: Source, date: string, model: ModelName): 
   );
 }
 
+// ---- single-column time series --------------------------------------------
+// The volume explorer needs the same water column on every available date.
+// /profile returns one column (~30 numbers) instead of a full 15-level grid,
+// so a 31-day series costs less over the wire than a single /prediction call.
+
+export interface ColumnFrame {
+  date: string;
+  predicted: (number | null)[];
+  truth: (number | null)[];
+}
+
+const profileCache = new Map<string, Promise<Profile>>();
+
+function profileKey(date: string, lat: number, lon: number, model: ModelName): string {
+  return `${model}|${date}|${lat.toFixed(3)},${lon.toFixed(3)}`;
+}
+
+/** loadProfile, memoised per (model, date, point) for the life of the tab. */
+export function loadProfileCached(
+  date: string,
+  lat: number,
+  lon: number,
+  model: ModelName
+): Promise<Profile> {
+  const key = profileKey(date, lat, lon, model);
+  let p = profileCache.get(key);
+  if (!p) {
+    p = loadProfile(date, lat, lon, model).catch((e) => {
+      profileCache.delete(key);
+      throw e;
+    });
+    profileCache.set(key, p);
+  }
+  return p;
+}
+
+/** Seed the cache with a column already sliced out of a loaded Prediction. */
+export function seedProfileCache(profile: Profile, date: string, model: ModelName): void {
+  profileCache.set(profileKey(date, profile.lat, profile.lon, model), Promise.resolve(profile));
+}
+
+/** Evenly thin a date list down to at most `max` entries, keeping both ends. */
+export function resampleTimes(times: string[], max: number): string[] {
+  if (times.length <= max || max < 2) return times;
+  const out: string[] = [];
+  for (let i = 0; i < max; i++) {
+    out.push(times[Math.round((i / (max - 1)) * (times.length - 1))]);
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * Visit order that fills the range by repeated subdivision (ends, midpoint,
+ * quarters, ...). A partly-loaded series then spans the whole window instead
+ * of only its first few days, so scrubbing is useful long before it finishes.
+ */
+function spreadOrder(n: number): number[] {
+  const out: number[] = [];
+  const seen = new Set<number>();
+  const push = (i: number) => {
+    if (i >= 0 && i < n && !seen.has(i)) {
+      seen.add(i);
+      out.push(i);
+    }
+  };
+  push(0);
+  push(n - 1);
+  for (let step = n - 1; step > 1; step = Math.ceil(step / 2)) {
+    for (let i = 0; i < n; i += step) push(i);
+  }
+  for (let i = 0; i < n; i++) push(i);
+  return out;
+}
+
+export interface ColumnSeriesOptions {
+  concurrency?: number;
+  signal?: AbortSignal;
+  /** Called as each frame lands, so the timeline can fill in progressively. */
+  onFrame?: (frame: ColumnFrame, loaded: number, total: number) => void;
+}
+
+/**
+ * Fetch the column at one point across many dates. Frames resolve out of order
+ * but are reported with their date, so callers can slot them into place.
+ */
+export async function loadColumnSeries(
+  dates: string[],
+  lat: number,
+  lon: number,
+  model: ModelName,
+  { concurrency = 4, signal, onFrame }: ColumnSeriesOptions = {}
+): Promise<ColumnFrame[]> {
+  const frames: ColumnFrame[] = [];
+  const order = spreadOrder(dates.length);
+  let next = 0;
+  let loaded = 0;
+
+  const worker = async () => {
+    while (next < order.length) {
+      if (signal?.aborted) return;
+      const date = dates[order[next++]];
+      try {
+        const p = await loadProfileCached(date, lat, lon, model);
+        if (signal?.aborted) return;
+        const frame: ColumnFrame = { date, predicted: p.predicted, truth: p.truth };
+        frames.push(frame);
+        onFrame?.(frame, ++loaded, dates.length);
+      } catch {
+        loaded++; // a missing day should not stall the rest of the series
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, dates.length) }, () => worker())
+  );
+  return frames.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export function loadEmbedding(source: Source, date: string): Promise<Embedding> {
   return json<Embedding>(
     source === "api" ? `${API_BASE}/embedding?date=${date}` : "/data/embedding_sample.json"

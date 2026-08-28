@@ -159,12 +159,15 @@ export default function App() {
           />
         ) : tab === "volume" ? (
           <VolumePage
+            source={source}
             meta={meta}
             pred={pred}
+            date={date}
             model={model}
             loading={loading}
             picked={picked}
             onPick={setPicked}
+            onDate={setDate}
           />
         ) : (
           <Playground source={source} meta={meta} models={models} />
