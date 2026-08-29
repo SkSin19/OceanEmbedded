@@ -15,13 +15,13 @@ interface Props {
   thermocline: number | null;
 }
 
-const W = 76;
+const W = 92;
 const H = 420;
 const TOP = 16;
 const BOT = 16;
-const TRACK_X = 20;
+const TRACK_X = 36;
 const TRACK_W = 16;
-const STRIP_X = 40;
+const STRIP_X = 56;
 const STRIP_W = 9;
 
 // 0 m and 2000 m get their own end labels below.

@@ -574,7 +574,7 @@ export default function Volume3D({
 
       if (lastMode !== c.mode) {
         lastMode = c.mode;
-        wantRadius = c.mode === "column" ? 132 : 165;
+        wantRadius = c.mode === "column" ? 132 : 128;
       }
       sph.radius += (wantRadius - sph.radius) * 0.08;
 

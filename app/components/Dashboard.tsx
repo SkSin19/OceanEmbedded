@@ -8,7 +8,6 @@ import { MODEL_LABEL } from "../lib/labels";
 import HeatmapCanvas from "./HeatmapCanvas";
 import EmbeddingCanvas from "./EmbeddingCanvas";
 import ProfileChart from "./ProfileChart";
-import Column3D from "./Column3D";
 import SkillChart from "./SkillChart";
 import Legend from "./Legend";
 
@@ -48,7 +47,6 @@ export default function Dashboard({
   const [view, setView] = useState<View>("predicted");
   const [embedding, setEmbedding] = useState<Embedding | null>(null);
   const [validation, setValidation] = useState<Validation>("holdout");
-  const [profile3d, setProfile3d] = useState(true);
 
   // Metrics follow the selected model and validation source.
   useEffect(() => {
@@ -321,29 +319,15 @@ export default function Dashboard({
               {pickedLat.toFixed(2)} N, {pickedLon?.toFixed(2)} E
             </div>
           )}
-          {profile3d ? (
-            <Column3D
-              depths={meta.depths}
-              min={scale.min}
-              max={scale.max}
-              columns={[
-                { label: "Predicted", temps: profilePred },
-                { label: "Truth", temps: profileTruth },
-              ]}
-            />
-          ) : (
-            <>
-              <ProfileChart depths={meta.depths} predicted={profilePred} truth={profileTruth} />
-              <div className="mt-2 flex gap-4 text-xs text-[color:var(--muted)]">
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-0.5 w-4 bg-sky-400" /> Truth (GLORYS)
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block h-0.5 w-4 bg-amber-500" /> Predicted
-                </span>
-              </div>
-            </>
-          )}
+          <ProfileChart depths={meta.depths} predicted={profilePred} truth={profileTruth} />
+          <div className="mt-2 flex gap-4 text-xs text-[color:var(--muted)]">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-0.5 w-4 bg-sky-400" /> Truth (GLORYS)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-0.5 w-4 bg-amber-500" /> Predicted
+            </span>
+          </div>
         </section>
       </div>
 

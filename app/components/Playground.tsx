@@ -7,7 +7,6 @@ import { gridExtent, nearestOcean } from "../lib/grid";
 import { MODEL_LABEL } from "../lib/labels";
 import HeatmapCanvas from "./HeatmapCanvas";
 import ProfileChart from "./ProfileChart";
-import Column3D from "./Column3D";
 import Legend from "./Legend";
 
 type Mode = "whatif" | "image";
@@ -30,7 +29,6 @@ export default function Playground({ source, meta, models }: Props) {
   const [loading, setLoading] = useState(false);
   const [imageName, setImageName] = useState<string | null>(null);
   const [isColormap, setIsColormap] = useState(false);
-  const [profile3d, setProfile3d] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -309,42 +307,20 @@ export default function Playground({ source, meta, models }: Props) {
                 </div>
               </div>
               <div className="md:col-span-2">
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2">
                   <h3 className="microlabel">Profile at the selected point</h3>
-                  <div className="segmented">
-                    <button className="pill" data-active={profile3d} onClick={() => setProfile3d(true)}>
-                      3D
-                    </button>
-                    <button className="pill" data-active={!profile3d} onClick={() => setProfile3d(false)}>
-                      2D
-                    </button>
-                  </div>
                 </div>
-                {profile3d ? (
-                  <Column3D
-                    depths={depths}
-                    min={predScale.min}
-                    max={predScale.max}
-                    columns={[
-                      { label: "Modified", temps: modProfile },
-                      { label: "Unmodified", temps: baseProfile },
-                    ]}
-                  />
-                ) : (
-                  <>
-                    <div className="mx-auto max-w-sm">
-                      <ProfileChart depths={depths} predicted={modProfile} truth={baseProfile} />
-                    </div>
-                    <div className="mt-2 flex justify-center gap-4 text-xs text-[color:var(--muted)]">
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-0.5 w-4 bg-sky-400" /> Unmodified day
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="inline-block h-0.5 w-4 bg-amber-500" /> Modified input
-                      </span>
-                    </div>
-                  </>
-                )}
+                <div className="mx-auto max-w-sm">
+                  <ProfileChart depths={depths} predicted={modProfile} truth={baseProfile} />
+                </div>
+                <div className="mt-2 flex justify-center gap-4 text-xs text-[color:var(--muted)]">
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-0.5 w-4 bg-sky-400" /> Unmodified day
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block h-0.5 w-4 bg-amber-500" /> Modified input
+                  </span>
+                </div>
               </div>
             </div>
           )}

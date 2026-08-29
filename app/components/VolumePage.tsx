@@ -263,7 +263,7 @@ export default function VolumePage({
         style={{ animationDelay: "120ms" }}
       >
         <section className="glass-panel relative overflow-hidden rounded-2xl lg:col-span-2">
-          <div className="h-[620px] w-full">
+          <div className="h-120 w-full">
             <Volume3D
               pred={pred}
               depths={meta.depths}
@@ -317,12 +317,12 @@ export default function VolumePage({
           <div className="glass-panel rounded-2xl p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-medium text-slate-200">Scene</h2>
-              <div className="inline-flex rounded-lg bg-white/5 p-0.5 text-[11px] ring-1 ring-white/10">
+              <div className="grid grid-cols-2 gap-0.5 rounded-lg bg-white/5 p-0.5 text-[11px] ring-1 ring-white/10">
                 {(["column", "basin"] as VolumeMode[]).map((m) => (
                   <button
                     key={m}
                     onClick={() => set("mode", m)}
-                    className={`rounded-md px-2 py-1 capitalize transition ${
+                    className={`rounded-md px-3 py-1 text-center capitalize transition ${
                       controls.mode === m
                         ? "bg-gradient-to-b from-slate-600 to-slate-700 text-white"
                         : "text-slate-400 hover:text-slate-200"
